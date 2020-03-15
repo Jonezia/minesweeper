@@ -1,6 +1,7 @@
 import pygame
 import time
 import tkinter as tk
+import random
 from tkinter import messagebox
 import os
 import sys
@@ -10,7 +11,7 @@ mainfont = pygame.font.SysFont('Roboto',18)
 timefont = pygame.font.SysFont('Roboto',20)
 
 class Grid:    
-    def __init__(self, rows, cols, win, edge):
+    def __init__(self, rows, cols, win, edge, mines):
         self.rows = rows
         self.cols = cols
         self.edge = edge
@@ -18,7 +19,8 @@ class Grid:
         self.width = edge*cols
         self.height = edge*rows
         self.win = win
-        self.remaining_mines = 0
+        self.flags = mines
+        self.running = True
         
     def draw(self):
         for i in range(self.rows+1):
@@ -29,39 +31,75 @@ class Grid:
             for j in range(self.cols):
                 self.squares[i][j].draw(self.win)
     
-    def click(self,pos):
+    def click(self,pos,button):
         if pos[0] < self.width and pos[1] < self.height:
             x = pos[0] // self.edge
             y = pos[1] // self.edge
-            self.squares[int(y)][int(x)].lclick()
+            if button == 1:
+                self.squares[int(y)][int(x)].reveal()
+            if button == 3:
+                if self.squares[int(y)][int(x)].marked == False:
+                    self.squares[int(y)][int(x)].marked = True
+                    self.flags -= 1
+                else:
+                    self.squares[int(y)][int(x)].marked = False
+                    self.flags += 1
                 
 class Square:
     def __init__(self, row, col, edge):
-        self.value = 5
+        self.adjacents = 0
         self.mine = False
+        self.marked = False
+        self.revealed = False
         self.row = row
         self.col = col
-        self.width = edge
-        self.height = edge
+        self.edge = edge
         
-    def lclick():
-        pass
-    
-    def rclick():
-        pass
+    def reveal(self):
+        if not self.marked:
+            if self.mine:
+                # lose Game
+                pass
+            self.revealed = True
         
     def draw(self,win):
-        x = self.col*self.height
-        y = self.row*self.height
-        text = mainfont.render(str(self.value),1,(0,0,0))
-        win.blit(text, (x + (self.height/2 - text.get_width()/2), y + (self.height/2 - text.get_height()/2)))
+        x = self.col*self.edge
+        y = self.row*self.edge
+        if self.revealed or self.marked:
+            if self.revealed:
+                if self.mine:
+                    text = mainfont.render("B",1,(255,0,0))
+                else:
+                    text = mainfont.render(str(self.adjacents),1,(0,0,0))
+            elif self.marked:
+                text = mainfont.render("M",1,(0,0,0))
+            win.blit(text, (x + (self.edge/2 - text.get_width()/2), y + (self.edge/2 - text.get_height()/2)))
+            
+class Generator:
+    def __init__(self,rows,cols,bombs):
+        self.bombs = [[0 for _ in range(cols)] for _ in range(rows)]
+        for _ in range(bombs):
+            x = random.randint(0,8)
+            y = random.randint(0,8)
+            while self.bombs[x][y] == 1:
+                x = random.randint(0,8)
+                y = random.randint(0,8)
+            self.bombs[x][y] = 1
         
-def redraw_window(win, board, time, remaining_mines, edge):
+    def adjacencies(self):
+        self.adjacencies = [[0 for _ in range(cols)] for _ in range(rows)]
+        for i in range(rows):
+            for j in range(cols):
+                adjacency = 0
+                if self.bombs[i][j] == 0:
+                    pass
+        
+def redraw_window(win, board, time, flags, edge):
     win.fill((255,255,255))
     time = timefont.render("Time: " + time, 1, (0,0,0))
     win.blit(time, (edge*board.cols - 95, edge*board.rows+12))
-    remaining_mines = timefont.render("Mines: " + str(remaining_mines), 1, (0,0,0))
-    win.blit(remaining_mines, (25, edge*board.rows+12))
+    flags = timefont.render("Flags: " + str(flags), 1, (0,0,0))
+    win.blit(flags, (25, edge*board.rows+12))
     board.draw()
 
 def format_time(secs):
@@ -82,22 +120,21 @@ def newGame(difficulty):
     
     win = pygame.display.set_mode((edge*cols,edge*rows+40))
     pygame.display.set_caption("Minesweeper")
-    board = Grid(rows,cols,win,edge)
-    running = True
+    board = Grid(rows,cols,win,edge,mines)
     start = time.time()
     
-    while running:
+    while board.running:
         play_time = round(time.time()-start)
         formatted_time = format_time(play_time)
         
         for event in pygame.event.get():
             if event.type is pygame.QUIT:
-                running = False
+                board.running = False
             if event.type is pygame.MOUSEBUTTONDOWN:
                 pos = pygame.mouse.get_pos()
-                board.click(pos)
+                board.click(pos,event.button)
                 
-        redraw_window(win,board,formatted_time,board.remaining_mines, edge)
+        redraw_window(win,board,formatted_time,board.flags, edge)
         pygame.display.update()
         
 mydifficulty = None
@@ -112,9 +149,8 @@ window = tk.Tk()
 window.title("Minesweeper Settings")
 tk.Label(window, text="Choose Difficulty: ", pady = 10).pack()
     
-tk.Button(window,text="easy",width=20,padx=20,command=lambda: setDifficulty("easy")).pack(fill="x")
-tk.Button(window,text="medium",width=20,padx=20,command=lambda: setDifficulty("medium")).pack(fill="x")
-tk.Button(window,text="hard",width=20,padx=20,command=lambda: setDifficulty("hard")).pack(fill="x")
+for difficulty in ["easy","medium","hard"]:
+    tk.Button(window,text=difficulty,width=20,padx=20,command=lambda: setDifficulty(difficulty)).pack(fill="x")
 
 window.mainloop()
 newGame(mydifficulty)
