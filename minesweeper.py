@@ -3,6 +3,7 @@ import time
 import tkinter as tk
 import random
 from tkinter import messagebox
+from itertools import product
 import os
 import sys
 pygame.init()
@@ -11,11 +12,11 @@ mainfont = pygame.font.SysFont('Roboto',18)
 timefont = pygame.font.SysFont('Roboto',20)
 
 class Grid:    
-    def __init__(self, rows, cols, win, edge, mines):
+    def __init__(self, rows, cols, win, edge, mines, mineMatrix, adjacencies):
         self.rows = rows
         self.cols = cols
         self.edge = edge
-        self.squares = [[Square(i, j, edge) for j in range(cols)] for i in range(rows)]
+        self.squares = [[Square(i,j,edge,mineMatrix[i][j],adjacencies[i][j]) for j in range(cols)] for i in range(rows)]
         self.width = edge*cols
         self.height = edge*rows
         self.win = win
@@ -33,22 +34,22 @@ class Grid:
     
     def click(self,pos,button):
         if pos[0] < self.width and pos[1] < self.height:
-            x = pos[0] // self.edge
-            y = pos[1] // self.edge
+            x = int(pos[0] // self.edge)
+            y = int(pos[1] // self.edge)
             if button == 1:
-                self.squares[int(y)][int(x)].reveal()
+                self.squares[y][x].reveal()
             if button == 3:
-                if self.squares[int(y)][int(x)].marked == False:
-                    self.squares[int(y)][int(x)].marked = True
+                if self.squares[y][x].marked == False:
+                    self.squares[y][x].marked = True
                     self.flags -= 1
                 else:
-                    self.squares[int(y)][int(x)].marked = False
+                    self.squares[y][x].marked = False
                     self.flags += 1
                 
 class Square:
-    def __init__(self, row, col, edge):
-        self.adjacents = 0
-        self.mine = False
+    def __init__(self, row, col, edge, mine, adjacents):
+        self.adjacents = adjacents
+        self.mine = mine
         self.marked = False
         self.revealed = False
         self.row = row
@@ -57,8 +58,8 @@ class Square:
         
     def reveal(self):
         if not self.marked:
-            if self.mine:
-                # lose Game
+            if self.mine == 1:
+                #Lose game
                 pass
             self.revealed = True
         
@@ -76,23 +77,30 @@ class Square:
             win.blit(text, (x + (self.edge/2 - text.get_width()/2), y + (self.edge/2 - text.get_height()/2)))
             
 class Generator:
-    def __init__(self,rows,cols,bombs):
-        self.bombs = [[0 for _ in range(cols)] for _ in range(rows)]
-        for _ in range(bombs):
-            x = random.randint(0,8)
-            y = random.randint(0,8)
-            while self.bombs[x][y] == 1:
-                x = random.randint(0,8)
-                y = random.randint(0,8)
-            self.bombs[x][y] = 1
+    def __init__(self,rows,cols,mines):
+        self.rows = rows
+        self. cols = cols
+        self.mineMatrix = [[0 for _ in range(cols)] for _ in range(rows)]
+        for _ in range(mines):
+            x = random.randint(0,self.rows-1)
+            y = random.randint(0,self.cols-1)
+            while self.mineMatrix[x][y] == 1:
+                x = random.randint(0,self.rows-1)
+                y = random.randint(0,self.cols-1)
+            self.mineMatrix[x][y] = 1
+        self.adjacencies()
         
     def adjacencies(self):
-        self.adjacencies = [[0 for _ in range(cols)] for _ in range(rows)]
-        for i in range(rows):
-            for j in range(cols):
+        self.adjacencies = [[0 for _ in range(self.cols)] for _ in range(self.rows)]
+        for i in range(self.rows):
+            for j in range(self.cols):
                 adjacency = 0
-                if self.bombs[i][j] == 0:
-                    pass
+                if self.mineMatrix[i][j] == 0:
+                    for c in product(*(range(n-1, n+2) for n in (i,j))):
+                        if c != (i,j) and 0 <= c[0] < self.rows and \
+                        0 <= c[1] < self.cols and self.mineMatrix[c[0]][c[1]] == 1:
+                            adjacency += 1
+                self.adjacencies[i][j] = adjacency
         
 def redraw_window(win, board, time, flags, edge):
     win.fill((255,255,255))
@@ -118,9 +126,11 @@ def newGame(difficulty):
     difficulties = {"easy":(9,9,10),"medium":(16,16,40),"hard":(30,16,99)}
     cols,rows,mines = difficulties[difficulty][0],difficulties[difficulty][1],difficulties[difficulty][2]
     
+    generator = Generator(rows,cols,mines)
+    
     win = pygame.display.set_mode((edge*cols,edge*rows+40))
     pygame.display.set_caption("Minesweeper")
-    board = Grid(rows,cols,win,edge,mines)
+    board = Grid(rows,cols,win,edge,mines,generator.mineMatrix,generator.adjacencies)
     start = time.time()
     
     while board.running:
@@ -149,8 +159,9 @@ window = tk.Tk()
 window.title("Minesweeper Settings")
 tk.Label(window, text="Choose Difficulty: ", pady = 10).pack()
     
-for difficulty in ["easy","medium","hard"]:
-    tk.Button(window,text=difficulty,width=20,padx=20,command=lambda: setDifficulty(difficulty)).pack(fill="x")
+tk.Button(window,text="easy",width=20,padx=20,command=lambda: setDifficulty("easy")).pack(fill="x")
+tk.Button(window,text="medium",width=20,padx=20,command=lambda: setDifficulty("medium")).pack(fill="x")
+tk.Button(window,text="hard",width=20,padx=20,command=lambda: setDifficulty("hard")).pack(fill="x")
 
 window.mainloop()
 newGame(mydifficulty)
