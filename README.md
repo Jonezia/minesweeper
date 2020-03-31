@@ -12,3 +12,5 @@ Controls:
 - Left click to reveal cell
 - Right click to mark cell
 - Space to solve
+
+Demo link: https://youtu.be/V6e8SnEOeVU
