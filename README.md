@@ -1,7 +1,7 @@
 # Minesweeper
 
 Pygame, Tkinter\
-Generates minesweeper boards of easy, medium, and hard difficulties\
+Generates minesweeper boards of easy, medium, and hard difficulties
 
 Difficulties:
 - Easy: 9x9, 10 mines
